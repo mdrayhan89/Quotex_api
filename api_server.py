@@ -9,12 +9,18 @@ app = Flask(__name__)
 EMAIL = "trrayhanislam78@gmail.com"
 PASSWORD = "Mdrayhan@055"
 
-# কানেকশন সেটআপ
+# গ্লোবাল ক্লায়েন্ট
 client = Quotex(email=EMAIL, password=PASSWORD)
-client.connect()
-client.change_account("PRACTICE")
 
-# 📊 ASSET MAP
+def ensure_connection():
+    if not client.check_connect():
+        client.connect()
+        time.sleep(2)
+        client.change_account("PRACTICE")
+        return True
+    return True
+
+# 📊 ALL SUPPORTED PAIRS DIRECTORY
 ASSET_DISPLAY_MAP = {
     "AUDCAD": "AUD/CAD", "AUDCAD_otc": "AUD/CAD (OTC)", "AUDCHF": "AUD/CHF", "AUDCHF_otc": "AUD/CHF (OTC)",
     "AUDJPY": "AUD/JPY", "AUDJPY_otc": "AUD/JPY (OTC)", "AUDNZD_otc": "AUD/NZD (OTC)", "AUDUSD": "AUD/USD",
@@ -54,24 +60,19 @@ ASSET_DISPLAY_MAP = {
 @app.route('/api/candles', methods=['GET'])
 def get_candles():
     pair = request.args.get('pair', 'USDBDT_otc')
-    market_name = ASSET_DISPLAY_MAP.get(pair, pair.replace("_otc", " (OTC)"))
-    
-    # কানেকশন চেক
-    if not client.check_connect():
-        client.connect()
+    ensure_connection()
     
     try:
-        # ডেটা ফেচ করার সঠিক পদ্ধতি
-        # শেষের দিকে ছোট সময় দিয়ে চেক করুন
-        raw_data = client.get_candles(pair, time.time(), 60, 100)
-        
+        # Quotex থেকে ডেটা নেওয়া
+        raw_candles = client.get_candles(pair, time.time(), 60, 50)
         formatted_data = []
-        if raw_data:
-            for i, candle in enumerate(raw_data):
+        
+        if raw_candles:
+            for i, candle in enumerate(raw_candles):
                 formatted_data.append({
                     "id": str(i+1),
                     "pair": pair,
-                    "market_name": market_name,
+                    "market_name": ASSET_DISPLAY_MAP.get(pair, pair.replace("_otc", " (OTC)")),
                     "candle_time": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(candle['time'])),
                     "open": str(candle['open']),
                     "close": str(candle['close']),
@@ -81,7 +82,8 @@ def get_candles():
         return jsonify({
             "owner": "DARK-X-RAYHAN",
             "success": True,
-            "data_count": len(formatted_data),
+            "requested_pair": pair,
+            "total_count": len(formatted_data),
             "data": formatted_data
         })
     except Exception as e:
