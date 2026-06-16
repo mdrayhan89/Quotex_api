@@ -14,7 +14,7 @@ client = Quotex(email=EMAIL, password=PASSWORD)
 client.connect()
 client.change_account("PRACTICE")
 
-# 📊 ALL SUPPORTED PAIRS DIRECTORY
+# 📊 ASSET MAP
 ASSET_DISPLAY_MAP = {
     "AUDCAD": "AUD/CAD", "AUDCAD_otc": "AUD/CAD (OTC)", "AUDCHF": "AUD/CHF", "AUDCHF_otc": "AUD/CHF (OTC)",
     "AUDJPY": "AUD/JPY", "AUDJPY_otc": "AUD/JPY (OTC)", "AUDNZD_otc": "AUD/NZD (OTC)", "AUDUSD": "AUD/USD",
@@ -56,8 +56,15 @@ def get_candles():
     pair = request.args.get('pair', 'USDBDT_otc')
     market_name = ASSET_DISPLAY_MAP.get(pair, pair.replace("_otc", " (OTC)"))
     
+    # কানেকশন চেক
+    if not client.check_connect():
+        client.connect()
+    
     try:
-        raw_data = client.get_candles(pair, time.time(), 60*10, 60)
+        # ডেটা ফেচ করার সঠিক পদ্ধতি
+        # শেষের দিকে ছোট সময় দিয়ে চেক করুন
+        raw_data = client.get_candles(pair, time.time(), 60, 100)
+        
         formatted_data = []
         if raw_data:
             for i, candle in enumerate(raw_data):
@@ -74,12 +81,12 @@ def get_candles():
         return jsonify({
             "owner": "DARK-X-RAYHAN",
             "success": True,
-            "requested_pair": pair,
-            "total_count": len(formatted_data),
+            "data_count": len(formatted_data),
             "data": formatted_data
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
