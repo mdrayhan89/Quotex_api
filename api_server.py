@@ -9,12 +9,12 @@ app = Flask(__name__)
 EMAIL = "trrayhanislam78@gmail.com"
 PASSWORD = "Mdrayhan@055"
 
-# Quotex কানেকশন
+# কানেকশন সেটআপ
 client = Quotex(email=EMAIL, password=PASSWORD)
 client.connect()
 client.change_account("PRACTICE")
 
-# 📊 MASTER ASSET DIRECTORY
+# 📊 ALL SUPPORTED PAIRS DIRECTORY
 ASSET_DISPLAY_MAP = {
     "AUDCAD": "AUD/CAD", "AUDCAD_otc": "AUD/CAD (OTC)", "AUDCHF": "AUD/CHF", "AUDCHF_otc": "AUD/CHF (OTC)",
     "AUDJPY": "AUD/JPY", "AUDJPY_otc": "AUD/JPY (OTC)", "AUDNZD_otc": "AUD/NZD (OTC)", "AUDUSD": "AUD/USD",
@@ -54,33 +54,32 @@ ASSET_DISPLAY_MAP = {
 @app.route('/api/candles', methods=['GET'])
 def get_candles():
     pair = request.args.get('pair', 'USDBDT_otc')
-    market_name = ASSET_DISPLAY_MAP.get(pair, pair)
+    market_name = ASSET_DISPLAY_MAP.get(pair, pair.replace("_otc", " (OTC)"))
     
     try:
-        # Quotex থেকে ডেটা নেওয়া
-        candles = client.get_candles(pair, time.time(), 60*10, 60)
-        
-        data_list = []
-        if candles:
-            for c in candles:
-                data_list.append({
-                    "time": time.strftime('%H:%M:%S', time.localtime(c['time'])),
-                    "open": str(c['open']),
-                    "high": str(c['high']),
-                    "low": str(c['low']),
-                    "close": str(c['close']),
-                    "color": "green" if float(c['close']) >= float(c['open']) else "red"
+        raw_data = client.get_candles(pair, time.time(), 60*10, 60)
+        formatted_data = []
+        if raw_data:
+            for i, candle in enumerate(raw_data):
+                formatted_data.append({
+                    "id": str(i+1),
+                    "pair": pair,
+                    "market_name": market_name,
+                    "candle_time": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(candle['time'])),
+                    "open": str(candle['open']),
+                    "close": str(candle['close']),
+                    "color": "green" if float(candle['close']) >= float(candle['open']) else "red"
                 })
         
         return jsonify({
+            "owner": "DARK-X-RAYHAN",
             "success": True,
-            "pair": pair,
-            "market_name": market_name,
-            "data": data_list
+            "requested_pair": pair,
+            "total_count": len(formatted_data),
+            "data": formatted_data
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=5000)
